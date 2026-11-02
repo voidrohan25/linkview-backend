@@ -28,6 +28,7 @@ export interface InterviewSessionRecord {
   currentTurn: number;
   totalTurns: number;
   currentQuestion: string;
+  customQuestions?: string[];
   history: Array<{
     turn: number;
     question: string;
@@ -116,6 +117,38 @@ class BackendInterviewStore {
     return this.interviews;
   }
 
+  getQuestionBank() {
+    return this.questionBank;
+  }
+
+  addQuestion(item: Omit<QuestionBankItem, 'id'> & { id?: string }): QuestionBankItem {
+    const newItem: QuestionBankItem = {
+      id: item.id || `qb-custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      technology: item.technology,
+      topic: item.topic || 'Custom Topics',
+      difficulty: item.difficulty || 'intermediate',
+      question: item.question,
+      expectedKeypoints: item.expectedKeypoints || [],
+      idealAnswer: item.idealAnswer || '',
+      tags: item.tags || [item.technology, 'TrainerImport'],
+    };
+    this.questionBank.unshift(newItem);
+    return newItem;
+  }
+
+  addBulkQuestions(items: Array<Omit<QuestionBankItem, 'id'> & { id?: string }>): QuestionBankItem[] {
+    return items.map((item) => this.addQuestion(item));
+  }
+
+  deleteQuestion(id: string): boolean {
+    const idx = this.questionBank.findIndex((q) => q.id === id);
+    if (idx !== -1) {
+      this.questionBank.splice(idx, 1);
+      return true;
+    }
+    return false;
+  }
+
   getInterviewById(id: string) {
     return this.interviews.find((i) => i.id === id) || null;
   }
@@ -125,7 +158,11 @@ class BackendInterviewStore {
     const tech = data.technology || 'Python';
 
     const matching = this.questionBank.filter((q) => q.technology.toLowerCase() === tech.toLowerCase());
-    const initialQuestion = matching[0]?.question || `Can you introduce your core experience with ${tech}?`;
+    const customList = data.customQuestions && data.customQuestions.length > 0 ? data.customQuestions : null;
+    const initialQuestion = customList
+      ? customList[0]
+      : matching[0]?.question || `Can you introduce your core experience with ${tech}?`;
+    const count = customList ? customList.length : (data.questionCount || 3);
 
     const newRecord: InterviewSessionRecord = {
       id: newId,
@@ -140,12 +177,13 @@ class BackendInterviewStore {
       interviewType: data.interviewType || 'technical',
       difficulty: data.difficulty || 'intermediate',
       durationMinutes: data.durationMinutes || 30,
-      questionCount: data.questionCount || 3,
+      questionCount: count,
       scheduledAt: data.scheduledAt || new Date().toISOString(),
       status: 'scheduled',
       currentTurn: 1,
-      totalTurns: data.questionCount || 3,
+      totalTurns: count,
       currentQuestion: initialQuestion,
+      customQuestions: customList || undefined,
       history: [],
     };
 

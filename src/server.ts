@@ -355,6 +355,59 @@ app.get('/api/admin/users', (req, res) => {
   return res.json({ success: true, data: users });
 });
 
+// 7. Trainer Question Bank & Manual Import API
+app.get('/api/trainer/questions', (req, res) => {
+  const tech = req.query.technology as string;
+  const search = (req.query.search as string)?.toLowerCase();
+  let list = interviewStore.getQuestionBank();
+
+  if (tech && tech !== 'all') {
+    list = list.filter((q) => q.technology.toLowerCase() === tech.toLowerCase());
+  }
+  if (search) {
+    list = list.filter((q) => q.question.toLowerCase().includes(search) || q.topic.toLowerCase().includes(search));
+  }
+  return res.json({ success: true, data: list, count: list.length });
+});
+
+app.post('/api/trainer/questions', (req, res) => {
+  try {
+    const { questions, technology, topic, difficulty, question, expectedKeypoints, idealAnswer, tags } = req.body;
+
+    if (Array.isArray(questions)) {
+      const added = interviewStore.addBulkQuestions(questions);
+      return res.status(201).json({ success: true, message: `Successfully imported ${added.length} questions`, data: added });
+    }
+
+    if (!question || !technology) {
+      return res.status(400).json({ success: false, error: 'Question text and technology are required' });
+    }
+
+    const newQ = interviewStore.addQuestion({
+      technology,
+      topic: topic || 'Custom Topic',
+      difficulty: difficulty || 'intermediate',
+      question,
+      expectedKeypoints: Array.isArray(expectedKeypoints) ? expectedKeypoints : [expectedKeypoints].filter(Boolean),
+      idealAnswer: idealAnswer || '',
+      tags: tags || [technology, 'CustomImport'],
+    });
+
+    return res.status(201).json({ success: true, message: 'Question added to bank', data: newQ });
+  } catch (err: unknown) {
+    const error = err as Error;
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/trainer/questions', (req, res) => {
+  const id = req.query.id as string;
+  if (!id) return res.status(400).json({ success: false, error: 'Question ID is required' });
+  const deleted = interviewStore.deleteQuestion(id);
+  if (!deleted) return res.status(404).json({ success: false, error: 'Question not found' });
+  return res.json({ success: true, message: 'Question removed from bank' });
+});
+
 app.post('/api/admin/users', (req, res) => {
   const { fullName, email, role, batchCode } = req.body;
   if (!email) return res.status(400).json({ success: false, error: 'Email is required' });

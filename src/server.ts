@@ -440,6 +440,72 @@ app.patch('/api/admin/users', (req, res) => {
   return res.status(400).json({ success: false, error: 'Unknown action' });
 });
 
+// 8. Proctoring Security & Flag Threshold API (Enforces 4-flag auto-submission)
+app.post('/api/proctoring', (req, res) => {
+  try {
+    const { interviewId, event, currentTranscript } = req.body;
+    if (!interviewId || !event || !event.type || !event.message) {
+      return res.status(400).json({ success: false, error: 'interviewId and valid event payload are required' });
+    }
+
+    const result = interviewStore.recordProctoringFlag(
+      interviewId,
+      {
+        type: event.type,
+        severity: event.severity || 'high',
+        message: event.message,
+        durationSeconds: event.durationSeconds,
+      },
+      currentTranscript
+    );
+
+    return res.json({
+      success: true,
+      autoSubmitted: result.autoSubmitted,
+      flagCount: result.flagCount,
+      maxAllowedFlags: result.maxAllowedFlags,
+      remainingFlags: result.remainingFlags,
+      event: result.event,
+      session: result.session,
+      message: result.message,
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/proctoring', (req, res) => {
+  try {
+    const interviewId = req.query.interviewId as string;
+    if (!interviewId) {
+      return res.status(400).json({ success: false, error: 'interviewId query parameter is required' });
+    }
+    const session = interviewStore.getInterviewById(interviewId);
+    if (!session) {
+      return res.status(404).json({ success: false, error: 'Interview session not found' });
+    }
+    return res.json({
+      success: true,
+      data: {
+        interviewId: session.id,
+        studentName: session.studentName,
+        technology: session.technology,
+        status: session.status,
+        submissionReason: session.submissionReason || 'normal',
+        autoSubmittedAt: session.autoSubmittedAt,
+        flagCount: session.flagCount || 0,
+        maxAllowedFlags: session.maxAllowedFlags || 3,
+        proctoringEvents: session.proctoringEvents || [],
+        scorecard: session.scorecard,
+      },
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 LinkView Backend API server listening on port ${PORT}`);
 });

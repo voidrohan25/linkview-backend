@@ -1,7 +1,25 @@
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { getAllUsers } from './usersStore';
+
 /**
  * LinkTest AI Mock Interview Platform - Master Central Store
- * Authoritative store for institute batches, trainers, students, questions, scheduled interviews, and scorecards.
+ * Authoritative persistent store for institute batches, trainers, students, questions, scheduled interviews, and scorecards.
  */
+
+function getPersistencePaths(filename: string): string[] {
+  const paths: string[] = [];
+  try {
+    const dataDir = path.join(process.cwd(), '.data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    paths.push(path.join(dataDir, filename));
+  } catch {}
+  paths.push(path.join(os.tmpdir(), filename));
+  return paths;
+}
 
 export interface StudentProfile {
   id: string;
@@ -37,6 +55,7 @@ export interface BatchCohort {
   trainerId: string;
   trainerName: string;
   studentCount: number;
+  students?: string[];
   startDate: string;
   status: 'ongoing' | 'upcoming' | 'completed';
 }
@@ -68,6 +87,11 @@ export interface InterviewSessionRecord {
   questionCount: number;
   scheduledAt: string;
   status: 'scheduled' | 'in_progress' | 'completed' | 'pending_evaluation' | 'cancelled';
+  approvalStatus?: 'not_requested' | 'pending' | 'approved' | 'rejected';
+  approvalRequestedAt?: string;
+  approvalDecisionAt?: string;
+  approvedByTrainer?: string;
+  rejectionReason?: string;
   submissionReason?: 'normal' | 'proctoring_threshold_exceeded' | 'manual_stop';
   flagCount?: number;
   maxAllowedFlags?: number;
@@ -113,36 +137,9 @@ export interface InterviewSessionRecord {
   }>;
 }
 
-// Clean initial production state: configured with default enrolled cohort for Aarav Sharma
-const defaultStudents: StudentProfile[] = [
-  {
-    id: 'std-aarav-01',
-    fullName: 'Aarav Sharma',
-    email: 'aarav.sharma@linktest.io',
-    phone: '+91 98765 43210',
-    batchId: 'BATCH-PY-2026',
-    batchName: 'Python Full Stack Placement Cohort 2026-A',
-    technology: 'Python',
-    status: 'active',
-    interviewsCompleted: 1,
-    averageScore: 86,
-    joinedDate: '2026-01-15',
-  },
-];
-
-const defaultTrainers: TrainerProfile[] = [
-  {
-    id: 'tr-rahul-01',
-    fullName: 'Rahul Sir (Lead Faculty)',
-    email: 'rahul.lead@linktest.io',
-    specialization: 'Python & Distributed Systems',
-    assignedBatches: ['BATCH-PY-2026'],
-    status: 'active',
-    scheduledInterviews: 2,
-    pendingEvaluations: 0,
-    joinedDate: '2025-08-01',
-  },
-];
+// Clean initial production state: Zero dummy examinees or fake pre-filled students
+const defaultStudents: StudentProfile[] = [];
+const defaultTrainers: TrainerProfile[] = [];
 
 const defaultBatches: BatchCohort[] = [
   {
@@ -150,9 +147,31 @@ const defaultBatches: BatchCohort[] = [
     name: 'Python Full Stack Placement Cohort 2026-A',
     code: 'PY-2026-A',
     technology: 'Python',
-    trainerId: 'tr-rahul-01',
-    trainerName: 'Rahul Sir (Lead Faculty)',
-    studentCount: 28,
+    trainerId: 'tr-lead',
+    trainerName: 'Faculty Trainer',
+    studentCount: 0,
+    startDate: '2026-02-01',
+    status: 'ongoing',
+  },
+  {
+    id: 'BATCH-JAVA-2026',
+    name: 'Java Enterprise Systems 2026-B',
+    code: 'JAVA-2026-B',
+    technology: 'Java Enterprise',
+    trainerId: 'tr-lead',
+    trainerName: 'Faculty Trainer',
+    studentCount: 0,
+    startDate: '2026-02-01',
+    status: 'ongoing',
+  },
+  {
+    id: 'BATCH-DSA-2026',
+    name: 'DSA & Systems Placement Track',
+    code: 'DSA-2026-C',
+    technology: 'DSA & Algorithms',
+    trainerId: 'tr-lead',
+    trainerName: 'Faculty Trainer',
+    studentCount: 0,
     startDate: '2026-02-01',
     status: 'ongoing',
   },
@@ -251,96 +270,10 @@ const defaultQuestionBank: QuestionBankItem[] = [
   },
 ];
 
-const defaultInterviews: InterviewSessionRecord[] = [
-  {
-    id: 'int-2026-py01',
-    studentId: 'std-aarav-01',
-    studentName: 'Aarav Sharma',
-    studentEmail: 'aarav.sharma@linktest.io',
-    trainerId: 'tr-rahul-01',
-    trainerName: 'Rahul Sir (Lead Faculty)',
-    batchId: 'BATCH-PY-2026',
-    batchName: 'Python Full Stack Placement Cohort 2026-A',
-    technology: 'Python',
-    interviewType: 'technical',
-    difficulty: 'intermediate',
-    durationMinutes: 30,
-    questionCount: 3,
-    scheduledAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 mins from now -> inside join window
-    status: 'scheduled',
-    currentTurn: 1,
-    totalTurns: 3,
-    currentQuestion: 'Explain how Python manages memory using the Global Interpreter Lock (GIL) and reference counting.',
-    history: [],
-    flagCount: 0,
-    maxAllowedFlags: 3,
-  },
-  {
-    id: 'int-2026-dsa01',
-    studentId: 'std-aarav-01',
-    studentName: 'Aarav Sharma',
-    studentEmail: 'aarav.sharma@linktest.io',
-    trainerId: 'tr-rahul-01',
-    trainerName: 'Rahul Sir (Lead Faculty)',
-    batchId: 'BATCH-PY-2026',
-    batchName: 'Python Full Stack Placement Cohort 2026-A',
-    technology: 'DSA',
-    interviewType: 'technical',
-    difficulty: 'intermediate',
-    durationMinutes: 30,
-    questionCount: 3,
-    scheduledAt: new Date(Date.now() - 86400000).toISOString(),
-    status: 'completed',
-    currentTurn: 3,
-    totalTurns: 3,
-    currentQuestion: 'How does a Bloom filter work and what are its trade-offs regarding false positives?',
-    history: [
-      {
-        turn: 1,
-        question: 'Given an array of integers, how would you find the subarray with the largest sum in O(n) time?',
-        studentAnswer: 'I used Kadane algorithm maintaining max_ending_here and max_so_far.',
-        feedback: 'Precise linear time explanation with clear corner-case handling.',
-        score: 9,
-      },
-      {
-        turn: 2,
-        question: 'What is the difference between Dijkstra algorithm and the Bellman-Ford algorithm for negative edge weights?',
-        studentAnswer: 'Dijkstra assumes non-negative weights using greedy priority queue; Bellman-Ford relaxes all edges |V|-1 times.',
-        feedback: 'Accurate distinction and complexity trade-offs explained.',
-        score: 8,
-      },
-      {
-        turn: 3,
-        question: 'How does a Bloom filter work and what are its trade-offs regarding false positives?',
-        studentAnswer: 'It uses bit arrays and k hash functions; false positives are possible, but false negatives are zero.',
-        feedback: 'Excellent grasp of probabilistic data structures.',
-        score: 9,
-      },
-    ],
-    scorecard: {
-      overallScore: 86,
-      technicalAccuracy: 88,
-      conceptualUnderstanding: 85,
-      communication: 87,
-      problemSolving: 84,
-      strengths: ['Clear grasp of algorithmic complexities and space-time trade-offs'],
-      weaknesses: ['Add concrete cache locality insights for array traversals'],
-      recommendations: ['Practice advanced graph dynamic programming'],
-      aiFeedback: 'Strong candidate readiness for product-based company rounds.',
-      evaluatedAt: new Date(Date.now() - 85000000).toISOString(),
-      proctoringSummary: {
-        totalFlags: 0,
-        tabSwitches: 0,
-        faceMissingCount: 0,
-        riskLevel: 'clean',
-      },
-    },
-    flagCount: 0,
-    maxAllowedFlags: 3,
-  },
-];
+// Clean initial state: Zero pre-existing mock interviews (Scheduled on-demand by Trainer)
+const defaultInterviews: InterviewSessionRecord[] = [];
 
-// Persistent state class in memory
+// Persistent state class with disk caching to survive serverless restarts
 class InterviewStore {
   private students: StudentProfile[] = [...defaultStudents];
   private trainers: TrainerProfile[] = [...defaultTrainers];
@@ -348,37 +281,224 @@ class InterviewStore {
   private questionBank: QuestionBankItem[] = [...defaultQuestionBank];
   private interviews: InterviewSessionRecord[] = [...defaultInterviews];
 
-  // Admin / Institute Metrics
+  constructor() {
+    this.loadFromDisk();
+  }
+
+  private loadFromDisk() {
+    const paths = getPersistencePaths('linkview_interviews_persistent_cache.json');
+    for (const p of paths) {
+      try {
+        if (fs.existsSync(p)) {
+          const raw = fs.readFileSync(p, 'utf-8');
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed.interviews)) this.interviews = parsed.interviews;
+          if (Array.isArray(parsed.batches) && parsed.batches.length > 0) this.batches = parsed.batches;
+          if (Array.isArray(parsed.students)) this.students = parsed.students;
+          if (Array.isArray(parsed.trainers)) this.trainers = parsed.trainers;
+          if (Array.isArray(parsed.questionBank) && parsed.questionBank.length > 0) {
+            this.questionBank = parsed.questionBank;
+          }
+          return;
+        }
+      } catch (e) {
+        console.warn(`Could not read persistent interviews cache from ${p}:`, e);
+      }
+    }
+  }
+
+  saveToDisk() {
+    const paths = getPersistencePaths('linkview_interviews_persistent_cache.json');
+    for (const p of paths) {
+      try {
+        fs.writeFileSync(
+          p,
+          JSON.stringify(
+            {
+              interviews: this.interviews,
+              batches: this.batches,
+              students: this.students,
+              trainers: this.trainers,
+              questionBank: this.questionBank,
+            },
+            null,
+            2
+          ),
+          'utf-8'
+        );
+      } catch (e) {
+        // Fallback if path is read-only
+      }
+    }
+  }
+
+  // Request & Approval Lifecycle for Protected Mock Interviews
+  requestInterviewApproval(interviewId: string): InterviewSessionRecord | null {
+    const interview = this.interviews.find((i) => i.id === interviewId);
+    if (!interview) return null;
+    interview.approvalStatus = 'pending';
+    interview.approvalRequestedAt = new Date().toISOString();
+    this.saveToDisk();
+    return interview;
+  }
+
+  approveInterview(interviewId: string, trainerName: string = 'Faculty Trainer'): InterviewSessionRecord | null {
+    const interview = this.interviews.find((i) => i.id === interviewId);
+    if (!interview) return null;
+    interview.approvalStatus = 'approved';
+    interview.approvalDecisionAt = new Date().toISOString();
+    interview.approvedByTrainer = trainerName;
+    this.saveToDisk();
+    return interview;
+  }
+
+  rejectInterview(interviewId: string, trainerName: string = 'Faculty Trainer', reason?: string): InterviewSessionRecord | null {
+    const interview = this.interviews.find((i) => i.id === interviewId);
+    if (!interview) return null;
+    interview.approvalStatus = 'rejected';
+    interview.approvalDecisionAt = new Date().toISOString();
+    interview.approvedByTrainer = trainerName;
+    interview.rejectionReason = reason || 'Trainer declined candidate mock start request';
+    this.saveToDisk();
+    return interview;
+  }
+
+  deleteInterview(interviewId: string): boolean {
+    const idx = this.interviews.findIndex((i) => i.id === interviewId);
+    if (idx !== -1) {
+      this.interviews.splice(idx, 1);
+      this.saveToDisk();
+      return true;
+    }
+    return false;
+  }
+
+  // Batches management with persistence
+  addBatch(batch: {
+    name: string;
+    code: string;
+    technology: string;
+    trainerName?: string;
+    students?: string[];
+  }): BatchCohort {
+    const newBatch: BatchCohort = {
+      id: `batch-${Date.now().toString().slice(-4)}`,
+      name: batch.name,
+      code: batch.code.toUpperCase(),
+      technology: batch.technology,
+      trainerId: 'tr-lead',
+      trainerName: batch.trainerName || 'Rahul Sir (Lead Faculty)',
+      studentCount: batch.students ? batch.students.length : 0,
+      students: batch.students || [],
+      startDate: new Date().toISOString().split('T')[0],
+      status: 'ongoing',
+    };
+    this.batches.unshift(newBatch);
+    this.saveToDisk();
+    return newBatch;
+  }
+
+  deleteBatch(batchId: string): boolean {
+    const idx = this.batches.findIndex((b) => b.id === batchId || b.code === batchId);
+    if (idx !== -1) {
+      this.batches.splice(idx, 1);
+      this.saveToDisk();
+      return true;
+    }
+    return false;
+  }
+
+  enrollStudentInBatch(batchIdOrCode: string, studentEmail: string): BatchCohort | null {
+    const norm = batchIdOrCode.trim().toUpperCase();
+    const batch = this.batches.find((b) => b.id.toUpperCase() === norm || b.code.toUpperCase() === norm);
+    if (!batch) return null;
+
+    if (!Array.isArray(batch.students)) {
+      batch.students = [];
+    }
+    const cleanEmail = studentEmail.trim().toLowerCase();
+    if (!batch.students.map((e) => e.toLowerCase()).includes(cleanEmail)) {
+      batch.students.push(cleanEmail);
+      batch.studentCount = batch.students.length;
+      this.saveToDisk();
+    }
+    return batch;
+  }
+
+  removeStudentFromBatch(batchIdOrCode: string, studentEmail: string): BatchCohort | null {
+    const norm = batchIdOrCode.trim().toUpperCase();
+    const batch = this.batches.find((b) => b.id.toUpperCase() === norm || b.code.toUpperCase() === norm);
+    if (!batch) return null;
+
+    if (Array.isArray(batch.students)) {
+      const cleanEmail = studentEmail.trim().toLowerCase();
+      batch.students = batch.students.filter((e) => e.toLowerCase() !== cleanEmail);
+      batch.studentCount = batch.students.length;
+      this.saveToDisk();
+    }
+    return batch;
+  }
+
+  getPendingApprovals(): InterviewSessionRecord[] {
+    return this.interviews.filter((i) => i.approvalStatus === 'pending');
+  }
+
+  // Admin / Institute Metrics — 100% computed from real database records
   getAdminStats() {
-    const totalStudents = this.students.length;
-    const totalTrainers = this.trainers.length;
+    const allUsers = getAllUsers();
+    const students = allUsers.filter((u) => u.role === 'student');
+    const trainers = allUsers.filter((u) => u.role === 'trainer');
+    
+    const totalStudents = students.length;
+    const totalTrainers = trainers.length;
+    const activeStudents = students.filter((s) => s.status === 'active').length;
+    const unassignedStudents = students.filter(
+      (s) => !s.batchCode || s.batchCode === 'UNASSIGNED' || s.batchCode === 'GLOBAL'
+    ).length;
+
     const totalBatches = this.batches.length;
     const totalInterviews = this.interviews.length;
-    const completed = this.interviews.filter(i => i.status === 'completed').length;
-    const upcoming = this.interviews.filter(i => i.status === 'scheduled').length;
-    const pendingEvaluations = this.interviews.filter(i => i.status === 'pending_evaluation').length;
-    
-    const completedWithScore = this.interviews.filter(i => i.scorecard && i.scorecard.overallScore > 0);
-    const avgScore = completedWithScore.length > 0
-      ? Math.round(completedWithScore.reduce((acc, curr) => acc + (curr.scorecard?.overallScore || 0), 0) / completedWithScore.length)
-      : 0;
+    const completed = this.interviews.filter((i) => i.status === 'completed').length;
+    const upcoming = this.interviews.filter((i) => i.status === 'scheduled').length;
+    const pendingRequests = this.interviews.filter((i) => i.approvalStatus === 'pending').length;
+    const approvedRequests = this.interviews.filter((i) => i.approvalStatus === 'approved').length;
+    const pendingEvaluations = this.interviews.filter((i) => i.status === 'pending_evaluation').length;
+
+    const completedWithScore = this.interviews.filter((i) => i.scorecard && i.scorecard.overallScore > 0);
+    const avgScore =
+      completedWithScore.length > 0
+        ? Math.round(
+            completedWithScore.reduce((acc, curr) => acc + (curr.scorecard?.overallScore || 0), 0) /
+              completedWithScore.length
+          )
+        : 0;
 
     return {
       totalStudents,
       totalTrainers,
+      activeStudents,
+      unassignedStudents,
       totalBatches,
       totalInterviews,
       completed,
       upcoming,
+      pendingRequests,
+      approvedRequests,
       pendingEvaluations,
       avgScore,
-      recentActivity: this.interviews.map(i => ({
+      recentActivity: this.interviews.map((i) => ({
         id: i.id,
         studentName: i.studentName,
+        studentEmail: i.studentEmail,
         technology: i.technology,
         difficulty: i.difficulty,
         status: i.status,
-        score: i.scorecard?.overallScore ?? (i.history.length > 0 ? Math.round(i.history.reduce((a, b) => a + b.score, 0) / i.history.length * 10) : null),
+        approvalStatus: i.approvalStatus || 'not_requested',
+        score:
+          i.scorecard?.overallScore ??
+          (i.history.length > 0
+            ? Math.round((i.history.reduce((a, b) => a + b.score, 0) / i.history.length) * 10)
+            : null),
         scheduledAt: i.scheduledAt,
       })),
       health: {
@@ -392,45 +512,103 @@ class InterviewStore {
     };
   }
 
-  // Trainer queries
-  getTrainerDashboard(trainerId?: string) {
-    const filter = trainerId ? (i: InterviewSessionRecord) => i.trainerId === trainerId : () => true;
-    const trainerInterviews = this.interviews.filter(filter);
-    
+  // Trainer queries — scoped to trainer identity
+  getTrainerDashboard(trainerEmail?: string) {
+    const allUsers = getAllUsers();
+    const students = allUsers.filter((u) => u.role === 'student');
+
+    let assignedBatches = this.batches;
+    if (trainerEmail) {
+      const normEmail = trainerEmail.trim().toLowerCase();
+      assignedBatches = this.batches.filter(
+        (b) =>
+          b.trainerId.toLowerCase() === normEmail ||
+          b.trainerName.toLowerCase().includes(normEmail)
+      );
+      if (assignedBatches.length === 0) {
+        assignedBatches = this.batches; // Fallback to all batches if lead trainer
+      }
+    }
+
+    const assignedBatchCodes = assignedBatches.map((b) => b.code.toUpperCase());
+    const assignedStudents = students.filter(
+      (s) => s.batchCode && assignedBatchCodes.includes(s.batchCode.toUpperCase())
+    );
+
+    const trainerInterviews = this.interviews.filter((i) => {
+      if (!trainerEmail) return true;
+      const norm = trainerEmail.toLowerCase();
+      return (
+        i.trainerId.toLowerCase() === norm ||
+        i.trainerName.toLowerCase().includes(norm) ||
+        assignedBatchCodes.includes(i.batchName?.toUpperCase() || '')
+      );
+    });
+
     return {
-      assignedBatchesCount: this.batches.length,
-      assignedStudentsCount: this.students.length,
-      scheduledCount: trainerInterviews.filter(i => i.status === 'scheduled').length,
-      completedCount: trainerInterviews.filter(i => i.status === 'completed').length,
-      pendingEvaluations: trainerInterviews.filter(i => i.status === 'pending_evaluation'),
-      todaySchedule: trainerInterviews.filter(i => i.status === 'scheduled'),
+      assignedBatchesCount: assignedBatches.length,
+      assignedStudentsCount: assignedStudents.length,
+      assignedBatches,
+      assignedStudents,
+      scheduledCount: trainerInterviews.filter((i) => i.status === 'scheduled').length,
+      completedCount: trainerInterviews.filter((i) => i.status === 'completed').length,
+      pendingRequestsCount: trainerInterviews.filter((i) => i.approvalStatus === 'pending').length,
+      pendingEvaluations: trainerInterviews.filter((i) => i.status === 'pending_evaluation'),
+      todaySchedule: trainerInterviews.filter((i) => i.status === 'scheduled'),
       recentInterviews: trainerInterviews.slice(0, 8),
     };
   }
 
-  // Student queries
+  // Student queries - dynamic and scoped strictly to candidate's own email and enrolled batch
   getStudentDashboard(studentEmail?: string) {
-    const student = this.students.find(s => s.email === studentEmail) || this.students[0] || {
-      id: 'student-active',
-      fullName: studentEmail ? studentEmail.split('@')[0] : 'Aarav Sharma',
-      email: studentEmail || 'aarav.sharma@linktest.io',
-      phone: '+91 98765 43210',
-      batchId: 'BATCH-PY-2026',
-      batchName: 'Python Full Stack Placement Cohort 2026-A',
-      technology: 'Python',
-      status: 'active' as const,
-      interviewsCompleted: 1,
-      averageScore: 86,
-      joinedDate: '2026-01-15',
+    if (!studentEmail) {
+      return {
+        student: null,
+        nextScheduledInterview: null,
+        upcomingInterviews: [],
+        completedInterviews: [],
+        freeCommunicationTracks: [],
+        readinessScore: 0,
+        curriculumTracks: [],
+      };
+    }
+
+    const normEmail = studentEmail.trim().toLowerCase();
+    const allUsers = getAllUsers();
+    const registeredUser = allUsers.find((u) => u.email.toLowerCase() === normEmail);
+    
+    // Find enrolled batch (either by batchCode or in batch.students roster)
+    const assignedBatch = this.batches.find(
+      (b) =>
+        (registeredUser?.batchCode && b.code.toUpperCase() === registeredUser.batchCode.toUpperCase()) ||
+        (Array.isArray(b.students) && b.students.some((e) => e.toLowerCase() === normEmail))
+    );
+
+    const student: StudentProfile = {
+      id: registeredUser?.id || `std-${normEmail}`,
+      fullName: registeredUser?.fullName || normEmail.split('@')[0],
+      email: normEmail,
+      phone: '',
+      batchId: assignedBatch ? assignedBatch.id : '',
+      batchName: assignedBatch ? assignedBatch.name : (registeredUser?.batchCode || 'UNASSIGNED'),
+      technology: assignedBatch ? assignedBatch.technology : 'General',
+      status: (registeredUser?.status as 'active' | 'inactive') || 'active',
+      interviewsCompleted: 0,
+      averageScore: 0,
+      joinedDate: registeredUser?.joinedAt || new Date().toISOString().split('T')[0],
     };
+
     const studentInterviews = this.interviews.filter(
-      i => (student && (i.studentId === student.id || i.studentEmail === student.email || i.studentEmail === 'aarav.sharma@linktest.io'))
+      (i) =>
+        i.studentEmail.toLowerCase() === normEmail ||
+        i.studentId === student.id ||
+        (assignedBatch && (i.batchId === assignedBatch.id || i.batchName === assignedBatch.name || i.batchName === assignedBatch.code))
     );
 
     const upcoming = studentInterviews
-      .filter(i => i.status === 'scheduled')
+      .filter((i) => i.status === 'scheduled')
       .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
-      .map(i => ({
+      .map((i) => ({
         ...i,
         availability: this.getInterviewAvailability(i.scheduledAt, i.durationMinutes),
       }));
@@ -438,71 +616,28 @@ class InterviewStore {
     const nextScheduled = upcoming.length > 0 ? upcoming[0] : null;
 
     const completed = studentInterviews
-      .filter(i => i.status === 'completed')
+      .filter((i) => i.status === 'completed')
       .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
 
-    // Free communication practice categories (Rule 2.1.F)
-    const freeCommunicationTracks = [
-      {
-        id: 'comm-intro',
-        title: 'Self Introduction & Elevator Pitch',
-        category: 'Communication',
-        description: 'Deliver a structured 90-second professional introduction highlighting tech stack and achievements.',
-        durationMinutes: 10,
-        freeAttemptsRemaining: 3,
-        trackId: 'communication',
-      },
-      {
-        id: 'comm-hr',
-        title: 'Basic HR & Behavioral Questions',
-        category: 'HR',
-        description: 'Answer standard HR inquiries on conflict management, team collaboration, and strengths.',
-        durationMinutes: 15,
-        freeAttemptsRemaining: 2,
-        trackId: 'hr',
-      },
-      {
-        id: 'comm-fluency',
-        title: 'English Fluency & Articulation',
-        category: 'Fluency',
-        description: 'Develop crisp verbal cadence, reduced filler words, and professional business vocabulary.',
-        durationMinutes: 12,
-        freeAttemptsRemaining: 3,
-        trackId: 'communication',
-      },
-      {
-        id: 'comm-workplace',
-        title: 'Workplace Situational Handling',
-        category: 'Behavioral',
-        description: 'Demonstrate leadership under pressure, cross-functional communication, and stakeholder management.',
-        durationMinutes: 15,
-        freeAttemptsRemaining: 2,
-        trackId: 'communication',
-      },
-      {
-        id: 'comm-confidence',
-        title: 'Speaking Confidence & Executive Presence',
-        category: 'Leadership',
-        description: 'Refine vocal tone, eye contact pacing, and persuasive technical storytelling for hiring managers.',
-        durationMinutes: 10,
-        freeAttemptsRemaining: 3,
-        trackId: 'communication',
-      },
-    ];
+    student.interviewsCompleted = completed.length;
+    if (completed.length > 0) {
+      const totalScore = completed.reduce((sum, item) => sum + (item.scorecard?.overallScore || 0), 0);
+      student.averageScore = Math.round(totalScore / completed.length);
+    }
 
     return {
       student,
       nextScheduledInterview: nextScheduled,
       upcomingInterviews: upcoming,
       completedInterviews: completed,
-      freeCommunicationTracks,
-      readinessScore: student.averageScore || 86,
+      freeCommunicationTracks: [],
+      readinessScore: student.averageScore || 0,
       curriculumTracks: [
-        { name: 'Python Core & Data Structures', progress: 75, mastery: 'Proficient' },
-        { name: 'Algorithms & Problem Solving', progress: 85, mastery: 'Advanced' },
-        { name: 'SQL & Database Optimization', progress: 60, mastery: 'Intermediate' },
-        { name: 'System Design & Distributed Patterns', progress: 40, mastery: 'In Progress' },
-        { name: 'HR & Behavioral Situational Round', progress: 90, mastery: 'Mastered' },
+        {
+          name: assignedBatch ? assignedBatch.technology : 'Core Foundations',
+          progress: completed.length > 0 ? Math.min(100, completed.length * 50) : 0,
+          mastery: completed.length > 0 ? 'Verified' : 'Unattempted',
+        },
       ],
     };
   }
@@ -510,9 +645,18 @@ class InterviewStore {
   // CRUD & Scheduling
   getStudents() { return this.students; }
   getTrainers() { return this.trainers; }
-  getBatches() { return this.batches; }
-  getQuestionBank() { return this.questionBank; }
-  getInterviews() { return this.interviews; }
+  getBatches() {
+    this.loadFromDisk();
+    return this.batches;
+  }
+  getQuestionBank() {
+    this.loadFromDisk();
+    return this.questionBank;
+  }
+  getInterviews() {
+    this.loadFromDisk();
+    return this.interviews;
+  }
   
   getInterviewById(id: string) {
     return this.interviews.find(i => i.id === id) || null;
@@ -530,11 +674,13 @@ class InterviewStore {
       tags: item.tags || [item.technology, 'CustomImport'],
     };
     this.questionBank.unshift(newItem);
+    this.saveToDisk();
     return newItem;
   }
 
   addBulkQuestions(items: Array<Omit<QuestionBankItem, 'id'> & { id?: string }>): QuestionBankItem[] {
     const added = items.map((item) => this.addQuestion(item));
+    this.saveToDisk();
     return added;
   }
 
@@ -542,6 +688,7 @@ class InterviewStore {
     const index = this.questionBank.findIndex((q) => q.id === id);
     if (index !== -1) {
       this.questionBank.splice(index, 1);
+      this.saveToDisk();
       return true;
     }
     return false;
@@ -570,6 +717,8 @@ class InterviewStore {
       : matchingQuestions[0]?.question || `Can you introduce your experience with ${tech} and core projects?`;
     const count = customList ? customList.length : (data.questionCount || 3);
 
+    const matchedBatch = this.batches.find(b => b.id === data.batchId || b.code === data.batchId);
+
     const newRecord: InterviewSessionRecord = {
       id: newId,
       studentId: student.id,
@@ -577,8 +726,8 @@ class InterviewStore {
       studentEmail: student.email,
       trainerId: trainer.id,
       trainerName: trainer.fullName,
-      batchId: student.batchId,
-      batchName: student.batchName,
+      batchId: data.batchId || student.batchId,
+      batchName: matchedBatch ? matchedBatch.name : (data.batchName || student.batchName),
       technology: tech,
       interviewType: data.interviewType || 'technical',
       difficulty: data.difficulty || 'intermediate',
@@ -586,6 +735,7 @@ class InterviewStore {
       questionCount: count,
       scheduledAt: data.scheduledAt || new Date(Date.now() + 86400000).toISOString(),
       status: 'scheduled',
+      approvalStatus: 'not_requested',
       currentTurn: 1,
       totalTurns: count,
       currentQuestion: initialQuestion,
@@ -594,6 +744,7 @@ class InterviewStore {
     };
 
     this.interviews.unshift(newRecord);
+    this.saveToDisk();
     return newRecord;
   }
 
@@ -639,6 +790,7 @@ class InterviewStore {
       };
     }
 
+    this.saveToDisk();
     return interview;
   }
 
@@ -666,6 +818,7 @@ class InterviewStore {
     if (approved) {
       interview.status = 'completed';
     }
+    this.saveToDisk();
     return interview;
   }
 

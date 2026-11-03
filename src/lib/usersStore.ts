@@ -199,10 +199,13 @@ export function syncUsers(incomingUsers: PlatformUser[]): PlatformUser[] {
 }
 
 export function getUserById(id: string): PlatformUser | undefined {
-  return state.users.find((u) => u.id === id);
+  getAllUsers();
+  const norm = id.trim().toLowerCase();
+  return state.users.find((u) => u.id.toLowerCase() === norm || u.email.toLowerCase() === norm);
 }
 
 export function getUserByEmail(email: string): PlatformUser | undefined {
+  getAllUsers();
   const norm = email.trim().toLowerCase();
   return state.users.find((u) => u.email.toLowerCase() === norm);
 }
@@ -297,23 +300,28 @@ export function deleteUser(userId: string): boolean {
  * Admin action: Promote Student to Trainer
  */
 export function promoteStudentToTrainer(userId: string, batchCodes: string[] = []): boolean {
-  const user = state.users.find((u) => u.id === userId);
+  getAllUsers();
+  const norm = userId.trim().toLowerCase();
+  const user = state.users.find((u) => u.id.toLowerCase() === norm || u.email.toLowerCase() === norm);
   if (!user || user.role === 'super_admin') return false;
 
   user.role = 'trainer';
+  if (batchCodes.length > 0) {
+    user.batchCode = batchCodes[0];
+  }
   
   // Record in trainer roster
   const existingTrainer = state.trainers.find((t) => t.email.toLowerCase() === user.email.toLowerCase());
   if (existingTrainer) {
     existingTrainer.status = 'active';
-    existingTrainer.batchCodes = batchCodes;
+    existingTrainer.batchCodes = batchCodes.length > 0 ? batchCodes : (existingTrainer.batchCodes || ['GLOBAL']);
   } else {
     state.trainers.push({
       id: `tr-${Date.now()}`,
       email: user.email,
       fullName: user.fullName,
       status: 'active',
-      batchCodes,
+      batchCodes: batchCodes.length > 0 ? batchCodes : ['GLOBAL'],
       promotedAt: new Date().toISOString(),
       promotedBy: 'Admin',
     });
@@ -327,7 +335,9 @@ export function promoteStudentToTrainer(userId: string, batchCodes: string[] = [
  * Admin action: Demote Trainer back to Student
  */
 export function demoteTrainerToStudent(userId: string): boolean {
-  const user = state.users.find((u) => u.id === userId);
+  getAllUsers();
+  const norm = userId.trim().toLowerCase();
+  const user = state.users.find((u) => u.id.toLowerCase() === norm || u.email.toLowerCase() === norm);
   if (!user || user.role === 'super_admin') return false;
 
   user.role = 'student';
@@ -394,6 +404,7 @@ export function getAllTrainers(): TrainerRecord[] {
 }
 
 export function findTrainerByEmail(email: string): TrainerRecord | undefined {
+  getAllTrainers();
   const norm = email.trim().toLowerCase();
   return state.trainers.find((t) => t.email.toLowerCase() === norm);
 }

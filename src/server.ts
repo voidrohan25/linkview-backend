@@ -125,9 +125,55 @@ app.post('/api/auth/login', (req, res) => {
       });
     }
 
-    // Default to Student
+    // Check existing platform user record
     const existing = getUserByEmail(norm);
-    const studentUser = existing || getOrCreateGoogleUser({
+    if (existing) {
+      if (existing.role === 'trainer') {
+        return res.json({
+          success: true,
+          user: {
+            id: existing.id,
+            fullName: existing.fullName,
+            email: existing.email,
+            role: 'trainer',
+            batchCodes: existing.batchCode ? [existing.batchCode] : ['GLOBAL'],
+          },
+          role: 'trainer',
+          redirectTo: '/trainer/dashboard',
+        });
+      }
+
+      if (existing.role === 'super_admin') {
+        return res.json({
+          success: true,
+          user: {
+            id: existing.id,
+            fullName: existing.fullName,
+            email: existing.email,
+            role: 'admin',
+            batchCode: 'GLOBAL',
+          },
+          role: 'admin',
+          redirectTo: '/admin/dashboard',
+        });
+      }
+
+      return res.json({
+        success: true,
+        user: {
+          id: existing.id,
+          fullName: existing.fullName,
+          email: existing.email,
+          role: 'student',
+          batchCode: existing.batchCode,
+        },
+        role: 'student',
+        redirectTo: '/student/dashboard',
+      });
+    }
+
+    // New user default to Student
+    const studentUser = getOrCreateGoogleUser({
       email: norm,
       fullName: fullName || norm.split('@')[0],
     });
@@ -152,7 +198,7 @@ app.post('/api/auth/login', (req, res) => {
 
 // 3. User session resolution
 app.post('/api/auth/me', (req, res) => {
-  const { email } = req.body;
+  const { email, fullName, avatarUrl } = req.body;
   if (!email) {
     return res.status(400).json({ success: false, error: 'Email is required' });
   }
@@ -160,13 +206,55 @@ app.post('/api/auth/me', (req, res) => {
   const norm = email.trim().toLowerCase();
 
   if (ADMIN_EMAILS.includes(norm)) {
+    const adminUser = getOrCreateGoogleUser({
+      email: norm,
+      fullName: fullName || 'Super Administrator',
+      avatarUrl,
+    });
     return res.json({
       success: true,
-      role: 'super_admin',
+      role: 'admin',
+      normalizedRole: 'admin',
+      user: { ...adminUser, role: 'admin' },
       email: norm,
-      fullName: 'Super Administrator',
+      fullName: adminUser.fullName,
       redirectTo: '/admin/dashboard',
     });
+  }
+
+  const existing = getUserByEmail(norm);
+  if (existing) {
+    if (existing.role === 'super_admin') {
+      return res.json({
+        success: true,
+        role: 'admin',
+        normalizedRole: 'admin',
+        user: { ...existing, role: 'admin' },
+        email: norm,
+        fullName: existing.fullName,
+        redirectTo: '/admin/dashboard',
+      });
+    }
+
+    if (existing.role === 'trainer') {
+      const trainer = findTrainerByEmail(norm);
+      return res.json({
+        success: true,
+        role: 'trainer',
+        normalizedRole: 'trainer',
+        user: {
+          id: existing.id,
+          fullName: existing.fullName,
+          email: existing.email,
+          role: 'trainer',
+          batchCodes: trainer?.batchCodes || (existing.batchCode ? [existing.batchCode] : ['GLOBAL']),
+        },
+        email: norm,
+        fullName: existing.fullName,
+        batchCodes: trainer?.batchCodes || (existing.batchCode ? [existing.batchCode] : ['GLOBAL']),
+        redirectTo: '/trainer/dashboard',
+      });
+    }
   }
 
   const trainer = findTrainerByEmail(norm);
@@ -174,6 +262,14 @@ app.post('/api/auth/me', (req, res) => {
     return res.json({
       success: true,
       role: 'trainer',
+      normalizedRole: 'trainer',
+      user: {
+        id: trainer.id,
+        fullName: trainer.fullName,
+        email: trainer.email,
+        role: 'trainer',
+        batchCodes: trainer.batchCodes,
+      },
       email: norm,
       fullName: trainer.fullName,
       batchCodes: trainer.batchCodes,
@@ -181,11 +277,19 @@ app.post('/api/auth/me', (req, res) => {
     });
   }
 
+  const studentUser = existing || getOrCreateGoogleUser({
+    email: norm,
+    fullName: fullName || norm.split('@')[0],
+    avatarUrl,
+  });
+
   return res.json({
     success: true,
     role: 'student',
+    normalizedRole: 'student',
+    user: studentUser,
     email: norm,
-    fullName: norm.split('@')[0],
+    fullName: studentUser.fullName,
     redirectTo: '/student/dashboard',
   });
 });

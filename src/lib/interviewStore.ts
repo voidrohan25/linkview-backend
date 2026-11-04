@@ -904,8 +904,15 @@ class InterviewStore {
     return newRecord;
   }
 
-  updateInterviewTurn(id: string, answer: string, score: number, feedback: string, nextQuestion?: string) {
-    const interview = this.interviews.find(i => i.id === id);
+  updateInterviewTurn(
+    id: string,
+    answer: string,
+    score: number,
+    feedback: string,
+    nextQuestion?: string,
+    customScorecard?: any
+  ) {
+    const interview = this.interviews.find((i) => i.id === id);
     if (!interview) return null;
 
     interview.history.push({
@@ -920,30 +927,36 @@ class InterviewStore {
       interview.currentTurn += 1;
       interview.currentQuestion = nextQuestion;
     } else {
-      // Completed, calculate comprehensive scorecard
-      const avg = Math.round(interview.history.reduce((a, b) => a + b.score, 0) / interview.history.length * 10);
-      interview.status = 'completed';
-      interview.scorecard = {
-        overallScore: avg,
-        technicalAccuracy: Math.min(100, avg + 2),
-        conceptualUnderstanding: Math.max(50, avg - 1),
-        communication: Math.min(95, avg + 1),
-        problemSolving: Math.max(60, avg - 2),
-        strengths: [
-          'Sound conceptual foundation in systems and programming conventions',
-          'Structured verbal articulation and logical clarity',
-        ],
-        weaknesses: [
-          'Incorporate exact asymptotic space and cache locality in explanations',
-          'Highlight concrete production debugging techniques',
-        ],
-        recommendations: [
-          'Practice edge-case handling on system boundary conditions',
-          'Review framework lifecycle optimizations',
-        ],
-        aiFeedback: 'Candidate demonstrates strong problem-solving and clean reasoning for technical hiring rounds.',
-        evaluatedAt: new Date().toISOString(),
-      };
+      // Completed, record authoritative scorecard
+      interview.status = "completed";
+      if (customScorecard) {
+        interview.scorecard = customScorecard;
+      } else {
+        const historyLen = Math.max(1, interview.history.length);
+        const avg = Math.round(
+          (interview.history.reduce((a, b) => a + (Number(b.score) || 0), 0) / historyLen) * 10
+        );
+
+        interview.scorecard = {
+          overallScore: avg,
+          technicalAccuracy: Math.min(98, Math.max(30, avg)),
+          conceptualUnderstanding: Math.min(95, Math.max(25, avg - 2)),
+          communication: Math.min(95, Math.max(40, avg + 3)),
+          problemSolving: Math.min(96, Math.max(25, avg - 1)),
+          strengths: [
+            `Demonstrated structured conceptual explanation on ${interview.technology || "core topics"}`,
+            "Clear technical vocabulary and terminology",
+          ],
+          weaknesses: [
+            "Incorporate deeper runtime complexity trade-offs and edge-case handling",
+          ],
+          recommendations: [
+            `Practice mock viva interview questions on ${interview.technology || "internals"} and system limits`,
+          ],
+          aiFeedback: `Candidate completed all questions with an overall score of ${avg}%.`,
+          evaluatedAt: new Date().toISOString(),
+        };
+      }
     }
 
     this.saveToDisk();

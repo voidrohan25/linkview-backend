@@ -260,16 +260,70 @@ Respond STRICTLY with a valid JSON object (no markdown, no extra text):
   // 2. Deterministic Semantic Rubric Engine (Zero-Hallucination Fallback)
   const lowerAnswer = cleanAnswer.toLowerCase();
 
-  // Technical domain lexicons
-  const techTerms = [
-    'memory', 'gil', 'thread', 'lock', 'mutex', 'asynchronous', 'concurrency', 'latency',
-    'complexity', 'o(1)', 'o(n)', 'o(log n)', 'stack', 'heap', 'garbage collection', 'hash',
-    'b-tree', 'index', 'acid', 'transaction', 'isolation', 'generator', 'yield', 'pointer',
-    'reference', 'star method', 'leadership', 'stakeholder', 'post-mortem', 'distributed',
+  // Comprehensive Domain Vocabulary Across 13 Technical Disciplines
+  const domainLexicon: Record<string, string[]> = {
+    python: [
+      'gil', 'global interpreter lock', 'reference counting', 'garbage collection', 'cyclic reference',
+      'generation', 'gen 0', 'gen 1', 'gen 2', 'cpython', 'bytecode', 'thread', 'multiprocessing',
+      'generator', 'yield', 'lazy evaluation', 'decorator', 'closure', 'higher order function',
+      'dunder', 'magic method', 'context manager', 'asyncio', 'coroutine', 'event loop', 'pypy',
+      'sys.getrefcount', 'gc module', 'memory leak', 'heap', 'stack', 'pyobject',
+    ],
+    java: [
+      'jvm', 'garbage collection', 'g1', 'zgc', 'eden', 'survivor', 'metaspace', 'heap', 'stack',
+      'multithreading', 'synchronized', 'volatile', 'atomic', 'thread pool', 'executor',
+      'classloader', 'bytecode', 'jmm', 'java memory model', 'string pool', 'equals', 'hashcode',
+      'generics', 'reflection', 'polymorphism', 'inheritance', 'interface', 'abstract class',
+    ],
+    dsa: [
+      'time complexity', 'space complexity', 'o(1)', 'o(n)', 'o(log n)', 'o(n log n)', 'o(n^2)',
+      'binary search', 'dynamic programming', 'memoization', 'tabulation', 'recursion', 'backtracking',
+      'graph', 'bfs', 'dfs', 'tree', 'bst', 'avl', 'trie', 'heap', 'priority queue', 'hash table',
+      'linked list', 'stack', 'queue', 'asymptotic', 'worst case', 'amortized', 'two pointer',
+    ],
+    javascript: [
+      'event loop', 'call stack', 'microtask', 'macrotask', 'promise', 'async', 'await', 'closure',
+      'lexical scope', 'prototype', 'prototypal inheritance', 'hoisting', 'v8 engine', 'garbage collection',
+      'settimeout', 'queueMicrotask', 'event bubbling', 'debouncing', 'throttling', 'immutability',
+    ],
+    system_design: [
+      'scalability', 'horizontal scaling', 'vertical scaling', 'load balancer', 'reverse proxy',
+      'caching', 'redis', 'memcached', 'cdn', 'sharding', 'partitioning', 'replication',
+      'cap theorem', 'consistency', 'availability', 'partition tolerance', 'microservices',
+      'message queue', 'kafka', 'rabbitmq', 'circuit breaker', 'rate limiting', 'idempotency',
+    ],
+    dbms: [
+      'acid', 'atomicity', 'consistency', 'isolation', 'durability', 'transaction', 'isolation levels',
+      'dirty read', 'phantom read', 'non-repeatable read', 'indexing', 'b-tree', 'b+ tree', 'hash index',
+      'normalization', '1nf', '2nf', '3nf', 'bcnf', 'deadlock', 'wal', 'write ahead logging',
+    ],
+    web: [
+      'virtual dom', 'reconciliation', 'fiber', 'state', 'props', 'hooks', 'useeffect', 'usememo',
+      'usecallback', 'ssr', 'csr', 'isr', 'next.js', 'hydration', 'xss', 'csrf', 'cors',
+      'csp', 'content security policy', 'dom', 'rendering pipeline', 'critical rendering path',
+    ],
+  };
+
+  const currentTrackKey = track.toLowerCase().includes('python') ? 'python'
+    : track.toLowerCase().includes('java') ? 'java'
+    : track.toLowerCase().includes('dsa') || track.toLowerCase().includes('algo') ? 'dsa'
+    : track.toLowerCase().includes('script') || track.toLowerCase().includes('js') ? 'javascript'
+    : track.toLowerCase().includes('system') ? 'system_design'
+    : track.toLowerCase().includes('db') || track.toLowerCase().includes('sql') ? 'dbms'
+    : track.toLowerCase().includes('web') || track.toLowerCase().includes('react') ? 'web'
+    : 'python';
+
+  const trackTerms = domainLexicon[currentTrackKey] || domainLexicon.python;
+  const commonTechTerms = [
+    'latency', 'throughput', 'architecture', 'concurrency', 'asynchronous', 'memory',
+    'performance', 'optimization', 'trade-off', 'complexity', 'overhead', 'lifecycle',
   ];
 
   let matchedTechCount = 0;
-  for (const term of techTerms) {
+  for (const term of trackTerms) {
+    if (lowerAnswer.includes(term)) matchedTechCount++;
+  }
+  for (const term of commonTechTerms) {
     if (lowerAnswer.includes(term)) matchedTechCount++;
   }
 
@@ -288,37 +342,65 @@ Respond STRICTLY with a valid JSON object (no markdown, no extra text):
   const wordCount = cleanAnswer.split(/\s+/).filter(Boolean).length;
   let rawScore = 3;
 
-  if (wordCount < 15) {
-    rawScore = 3;
-  } else if (matchedKeypoints.length > 0) {
-    const ratio = matchedKeypoints.length / (expectedKeypoints?.length || 1);
-    rawScore = Math.min(10, Math.round(5 + ratio * 4 + Math.min(1, matchedTechCount * 0.2)));
-  } else if (matchedTechCount >= 3) {
-    rawScore = Math.min(8, 5 + Math.floor(matchedTechCount / 2));
-  } else if (wordCount >= 40) {
-    rawScore = 6;
+  // Realistic Grading Curve
+  if (wordCount < 12) {
+    rawScore = 2;
+  } else if (matchedKeypoints.length >= 3 && matchedTechCount >= 4) {
+    rawScore = Math.min(10, 8 + Math.floor(wordCount / 50));
+  } else if (matchedKeypoints.length >= 2 || matchedTechCount >= 4) {
+    rawScore = Math.min(9, 7 + Math.floor(wordCount / 60));
+  } else if (matchedKeypoints.length >= 1 || matchedTechCount >= 2) {
+    rawScore = Math.min(7, 5 + Math.floor(matchedTechCount / 2));
+  } else if (wordCount >= 35) {
+    rawScore = 5;
   } else {
-    rawScore = 4;
+    rawScore = 3;
   }
 
-  const technicalAccuracy = Math.min(95, Math.max(30, rawScore * 9 + 4));
-  const conceptualDepth = Math.min(95, Math.max(25, rawScore * 8 + 8));
-  const communication = Math.min(95, Math.max(40, Math.min(90, 50 + Math.floor(wordCount / 2))));
-  const completeness = Math.min(95, Math.max(20, rawScore * 9));
+  // Dimension breakdown calculated strictly from candidate performance
+  const technicalAccuracy = Math.min(98, Math.max(25, rawScore * 10 - (missingKeypoints.length * 3) + Math.min(8, matchedTechCount)));
+  const conceptualDepth = Math.min(96, Math.max(20, Math.round(rawScore * 9.5 + Math.min(10, matchedKeypoints.length * 4))));
+  const communication = Math.min(95, Math.max(35, Math.min(95, 45 + Math.floor(wordCount / 1.5))));
+  const completeness = Math.min(98, Math.max(20, Math.round((matchedKeypoints.length / Math.max(1, (expectedKeypoints?.length || 3))) * 80 + rawScore * 2)));
 
   let feedback = '';
   if (rawScore >= 8) {
-    feedback = `Exceptional technical explanation. Demonstrated precise command of concepts and covered ${
-      matchedKeypoints.length > 0 ? matchedKeypoints.join(', ') : 'core mechanics'
-    }.`;
+    feedback = `Exceptional technical explanation. Accurately demonstrated deep mechanical understanding of ${
+      matchedKeypoints.length > 0 ? matchedKeypoints.slice(0, 2).join(' and ') : 'the core architectural concepts'
+    } with concrete production trade-offs.`;
   } else if (rawScore >= 6) {
-    feedback = `Solid answer covering primary fundamentals. To achieve full marks, detail concrete runtime complexities and cache/disk trade-offs.`;
+    feedback = `Solid answer demonstrating practical familiarity. To elevate into senior engineering caliber, elaborate on concrete runtime edge cases and memory/asymptotic trade-offs.`;
   } else {
-    feedback = `Basic familiarity shown, but response lacks depth. Review ${
+    feedback = `Basic familiarity shown, but response lacks technical precision. Review ${
       missingKeypoints.length > 0
         ? missingKeypoints.slice(0, 2).join(' and ')
-        : 'architectural mechanics and precise definitions'
+        : 'underlying execution mechanics, memory lifecycle, and asymptotic complexities'
     }.`;
+  }
+
+  const strengthsList: string[] = [];
+  if (matchedKeypoints.length > 0) {
+    strengthsList.push(`Accurately articulated: ${matchedKeypoints[0]}`);
+    if (matchedKeypoints.length > 1) {
+      strengthsList.push(`Strong conceptual grasp of: ${matchedKeypoints[1]}`);
+    }
+  } else if (matchedTechCount >= 2) {
+    strengthsList.push(`Demonstrated appropriate technical terminology for ${track}`);
+    strengthsList.push('Structured communicative framing');
+  } else {
+    strengthsList.push('Attempted technical problem definition');
+    strengthsList.push('Clear audible cadence and response willingness');
+  }
+
+  const weaknessesList: string[] = [];
+  if (missingKeypoints.length > 0) {
+    weaknessesList.push(`Did not elaborate on: ${missingKeypoints[0]}`);
+    if (missingKeypoints.length > 1) {
+      weaknessesList.push(`Omitted deep dive into: ${missingKeypoints[1]}`);
+    }
+  } else {
+    weaknessesList.push('Incorporate more explicit runtime time and space complexity figures');
+    weaknessesList.push('Detail multi-threaded synchronization or production scale trade-offs');
   }
 
   return {
@@ -328,17 +410,11 @@ Respond STRICTLY with a valid JSON object (no markdown, no extra text):
     communication,
     completeness,
     feedback,
-    strengths:
-      matchedKeypoints.length > 0
-        ? [`Addressed core keypoint: ${matchedKeypoints[0]}`, 'Good articulation of concepts']
-        : ['Structured verbal attempt', 'Clear baseline technical vocabulary'],
-    weaknesses:
-      missingKeypoints.length > 0
-        ? [`Lacked coverage of: ${missingKeypoints[0]}`, 'Include exact time and space complexity']
-        : ['Deepen runtime trade-offs and edge-case behaviors'],
+    strengths: strengthsList,
+    weaknesses: weaknessesList,
     recommendations: [
-      `Review ${track} internals and practice structured STAR/bulleted verbal answers`,
-      'Elaborate with concrete architectural examples and error-handling paths',
+      `Deepen technical mastery of ${track} internals and runtime memory lifecycle`,
+      'Structure technical interview viva answers using: Core Definition -> Mechanical How/Why -> Complexity/Trade-off',
     ],
     matchedKeypoints,
     missingKeypoints,

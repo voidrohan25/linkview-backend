@@ -268,6 +268,106 @@ const defaultQuestionBank: QuestionBankItem[] = [
     idealAnswer: 'Use the STAR format: Describe the exact technical challenge, specify your ownership role, break down the systematic diagnostics and code changes you delivered, and quantify the resulting performance boost.',
     tags: ['HR', 'Behavioral', 'Culture Fit'],
   },
+  {
+    id: 'qb-10',
+    technology: 'JavaScript',
+    topic: 'Event Loop & Concurrency',
+    difficulty: 'intermediate',
+    question: 'How does the JavaScript runtime event loop distinguish between the call stack, microtask queue, and macrotask queue?',
+    expectedKeypoints: ['Call stack execution to completion', 'Microtask queue (Promises, queueMicrotask, MutationObserver)', 'Macrotask queue (setTimeout, setInterval, I/O)', 'Microtask drain before next macrotask'],
+    idealAnswer: 'JavaScript executes synchronous code on the single-threaded Call Stack until empty. The Event Loop then executes ALL queued microtasks (Promise reactions, queueMicrotask) completely until the microtask queue is empty before picking a single task from the macrotask queue (setTimeout, setInterval).',
+    tags: ['JavaScript', 'Event Loop', 'Microtasks', 'Async'],
+  },
+  {
+    id: 'qb-11',
+    technology: 'JavaScript',
+    topic: 'Closures & Scope Chain',
+    difficulty: 'beginner',
+    question: 'What is a closure in JavaScript and what are practical use cases and memory leak risks associated with them?',
+    expectedKeypoints: ['Function lexical environment binding', 'Encapsulation / private state', 'Memory retention when references persist'],
+    idealAnswer: 'A closure is the combination of a function bundled together with references to its surrounding lexical environment. Practical use cases include data privacy, function currying, and memoization. Memory risks arise when unused outer variables are retained by long-lived closures or event listeners.',
+    tags: ['JavaScript', 'Closures', 'Scope', 'Memory'],
+  },
+  {
+    id: 'qb-12',
+    technology: 'Object-Oriented Programming',
+    topic: 'SOLID Principles',
+    difficulty: 'intermediate',
+    question: 'Explain the Liskov Substitution Principle (LSP) and provide an architectural scenario where violating it breaks caller expectations.',
+    expectedKeypoints: ['Subtypes must be substitutable for supertypes', 'Preconditions cannot be strengthened', 'Postconditions cannot be weakened', 'Classic Square extending Rectangle violation'],
+    idealAnswer: 'Liskov Substitution states that objects of a superclass should be replaceable with objects of its subclasses without altering application correctness. Violating LSP occurs when a Square subclass overrides setWidth and setHeight of Rectangle, mutating both dimensions and breaking client assumptions about independent height and width mutability.',
+    tags: ['OOP', 'SOLID', 'Architecture', 'Design Principles'],
+  },
+  {
+    id: 'qb-13',
+    technology: 'Database Management Systems',
+    topic: 'ACID & Transaction Isolation',
+    difficulty: 'intermediate',
+    question: 'Explain the four standard SQL transaction isolation levels and what read phenomena (Dirty Read, Non-Repeatable Read, Phantom Read) each prevents.',
+    expectedKeypoints: ['Read Uncommitted (allows dirty reads)', 'Read Committed (prevents dirty reads)', 'Repeatable Read (prevents non-repeatable reads)', 'Serializable (prevents phantom reads via range locks or SSI)'],
+    idealAnswer: 'Read Uncommitted allows transactions to read uncommitted dirty data. Read Committed guarantees that any data read was committed, preventing dirty reads. Repeatable Read ensures queries re-reading data see identical row values, preventing non-repeatable reads. Serializable is the strictest level, preventing phantom rows by locking ranges or using Serializable Snapshot Isolation (SSI).',
+    tags: ['DBMS', 'SQL', 'ACID', 'Transactions', 'Concurrency'],
+  },
+  {
+    id: 'qb-14',
+    technology: 'Operating Systems',
+    topic: 'Processes, Threads & Virtual Memory',
+    difficulty: 'intermediate',
+    question: 'What are the architectural differences between a process and a thread, and how does the MMU manage virtual memory paging?',
+    expectedKeypoints: ['Separate address space vs shared memory', 'Context switch overhead difference', 'Page table and Translation Lookaside Buffer (TLB)', 'Page fault interrupt mechanics'],
+    idealAnswer: 'A process is an independent execution unit with its own virtual address space, file descriptors, and security context. Threads reside within a process, sharing code, heap, and global variables while possessing distinct registers and stacks. The Memory Management Unit (MMU) uses page tables and the hardware TLB to translate virtual to physical addresses, triggering a page fault interrupt if an unmapped or swapped page is accessed.',
+    tags: ['Operating Systems', 'Processes', 'Threads', 'Virtual Memory', 'Paging'],
+  },
+  {
+    id: 'qb-15',
+    technology: 'Operating Systems',
+    topic: 'Deadlock Conditions',
+    difficulty: 'advanced',
+    question: 'What are the four Coffman conditions necessary for a deadlock to occur, and how can an engineering team break at least one to prevent deadlocks?',
+    expectedKeypoints: ['Mutual exclusion', 'Hold and wait', 'No preemption', 'Circular wait', 'Resource ordering strategy'],
+    idealAnswer: 'The four Coffman conditions are: Mutual Exclusion, Hold and Wait, No Preemption, and Circular Wait. The most common prevention strategy is eliminating Circular Wait by establishing a strict global total ordering of all lock acquisitions throughout the system, ensuring every component acquires locks in identical sequence.',
+    tags: ['Operating Systems', 'Deadlock', 'Concurrency', 'Locks'],
+  },
+  {
+    id: 'qb-16',
+    technology: 'Computer Networks',
+    topic: 'TCP/IP & Transport Protocols',
+    difficulty: 'intermediate',
+    question: 'Walk through the TCP three-way handshake and describe why HTTP/3 transitioned from TCP to QUIC over UDP.',
+    expectedKeypoints: ['SYN, SYN-ACK, ACK handshake', 'Head-of-Line (HoL) blocking in TCP', 'QUIC independent streams over UDP', '0-RTT / 1-RTT connection establishment'],
+    idealAnswer: 'TCP initiates connections via SYN (seq x), SYN-ACK (ack x+1, seq y), and ACK (ack y+1). HTTP/2 multiplexed streams over a single TCP connection, but experienced Head-of-Line (HoL) blocking whenever packet loss stalled all multiplexed streams. HTTP/3 adopted QUIC over UDP, ensuring packet loss on one stream does not block unrelated concurrent streams, while combining cryptographic TLS 1.3 handshake into connection establishment.',
+    tags: ['Computer Networks', 'TCP', 'QUIC', 'HTTP3', 'UDP'],
+  },
+  {
+    id: 'qb-17',
+    technology: 'System Design',
+    topic: 'Distributed Systems & Scalability',
+    difficulty: 'advanced',
+    question: 'How would you architect a distributed rate limiter capable of handling 500,000 requests per second across multi-region edge gateways?',
+    expectedKeypoints: ['Token Bucket or Sliding Window Log', 'Redis cluster or local in-memory token counters', 'Centralized vs decentralized edge sync', 'Graceful degradation on datastore latency'],
+    idealAnswer: 'We deploy a Sliding Window Counter algorithm with Redis using Lua scripts for atomicity. To avoid cross-region latency bottlenecks at 500k RPS, edge proxies maintain localized token quotas refreshed asynchronously from regional Redis instances, failing open or degrading gracefully to localized in-memory rate limiting if network partitions arise.',
+    tags: ['System Design', 'Rate Limiter', 'Scalability', 'Distributed Systems'],
+  },
+  {
+    id: 'qb-18',
+    technology: 'Web Development',
+    topic: 'Rendering Architecture & Security',
+    difficulty: 'intermediate',
+    question: 'Contrast Client-Side Rendering (CSR), Server-Side Rendering (SSR), and Incremental Static Regeneration (ISR). How do you mitigate Cross-Site Scripting (XSS)?',
+    expectedKeypoints: ['CSR initial bundle cost vs SSR time to first byte', 'ISR background regeneration on cache miss', 'Context-aware output encoding', 'Content Security Policy (CSP) headers'],
+    idealAnswer: 'CSR shifts rendering to browser JavaScript, incurring larger initial download but fast subsequent interactions. SSR compiles HTML on each server request, improving SEO and Time-to-First-Byte (TTFB). ISR serves cached static pages and regenerates them in the background after revalidation windows. XSS is mitigated through context-aware output encoding, strict Content Security Policy (CSP) headers, and avoiding raw dangerouslySetInnerHTML.',
+    tags: ['Web Development', 'Next.js', 'SSR', 'Security', 'XSS'],
+  },
+  {
+    id: 'qb-19',
+    technology: 'Python',
+    topic: 'Asyncio & Concurrency',
+    difficulty: 'advanced',
+    question: 'How does the asyncio event loop coordinate coroutines, and when would you select multiprocessing over asyncio in Python?',
+    expectedKeypoints: ['Single-threaded cooperative multitasking', 'await yields control to event loop', 'I/O-bound tasks vs CPU-bound tasks', 'multiprocessing bypasses GIL'],
+    idealAnswer: 'Python asyncio uses a single-threaded event loop employing cooperative multitasking: when a coroutine hits an await on non-blocking I/O, control yields back to the loop to run other scheduled tasks. For CPU-bound tasks (e.g. data processing, machine learning), asyncio cannot parallelize execution due to the GIL; multiprocessing must be chosen to spawn separate OS processes with independent GILs.',
+    tags: ['Python', 'Asyncio', 'GIL', 'Concurrency'],
+  },
 ];
 
 // Clean initial state: Zero pre-existing mock interviews (Scheduled on-demand by Trainer)
@@ -625,6 +725,55 @@ class InterviewStore {
       student.averageScore = Math.round(totalScore / completed.length);
     }
 
+    // Compute Candidate Metrics (Section 5C)
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const interviewsThisWeek = completed.filter((i) => {
+      const ts = new Date(i.scheduledAt).getTime();
+      return !isNaN(ts) && ts >= oneWeekAgo;
+    }).length;
+
+    const totalAssigned = studentInterviews.length;
+    const completionRate = totalAssigned > 0 ? Math.round((completed.length / totalAssigned) * 100) : 0;
+
+    // Skill category strengths and weaknesses derived from interview technologies & turn feedbacks
+    const techScores: Record<string, { total: number; count: number }> = {};
+    completed.forEach((i) => {
+      const tech = i.technology || 'General';
+      const score = i.scorecard?.overallScore || 0;
+      if (!techScores[tech]) techScores[tech] = { total: 0, count: 0 };
+      techScores[tech].total += score;
+      techScores[tech].count += 1;
+    });
+
+    const categoryStats = Object.entries(techScores).map(([tech, stat]) => ({
+      name: tech,
+      score: Math.round(stat.total / stat.count),
+    }));
+
+    categoryStats.sort((a, b) => b.score - a.score);
+    const strongestSkills = categoryStats.filter((c) => c.score >= 70).map((c) => c.name);
+    const skillsToImprove = categoryStats.filter((c) => c.score < 70).map((c) => c.name);
+
+    if (strongestSkills.length === 0 && completed.length > 0) {
+      strongestSkills.push(categoryStats[0]?.name || 'Problem Solving');
+    }
+    if (skillsToImprove.length === 0 && completed.length > 0 && categoryStats.length > 1) {
+      skillsToImprove.push(categoryStats[categoryStats.length - 1]?.name || 'Asymptotic Analysis');
+    }
+
+    const recentTrend = completed.slice(0, 5).map((i) => ({
+      date: i.scheduledAt ? new Date(i.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recent',
+      score: i.scorecard?.overallScore || 75,
+      technology: i.technology,
+    }));
+
+    const recommendedNext =
+      skillsToImprove.length > 0
+        ? `Targeted Mock: ${skillsToImprove[0]} Deep Dive`
+        : completed.length > 0
+        ? 'Advanced Full-Stack & System Design Simulation'
+        : 'Foundational Technical Viva (Python / DSA)';
+
     return {
       student,
       nextScheduledInterview: nextScheduled,
@@ -632,6 +781,13 @@ class InterviewStore {
       completedInterviews: completed,
       freeCommunicationTracks: [],
       readinessScore: student.averageScore || 0,
+      interviewsCompleted: completed.length,
+      interviewsThisWeek,
+      completionRate,
+      strongestSkills,
+      skillsToImprove,
+      recentTrend,
+      recommendedNext,
       curriculumTracks: [
         {
           name: assignedBatch ? assignedBatch.technology : 'Core Foundations',

@@ -12,6 +12,7 @@ import {
   demoteTrainerToStudent,
   createTrainerInvitation,
 } from './lib/usersStore.js';
+import { SUPER_ADMIN_EMAILS } from './lib/supabase.js';
 import { interviewStore } from './lib/interviewStore.js';
 import { evaluateAIInterviewAnswer } from './lib/ai.js';
 
@@ -85,9 +86,17 @@ app.post('/api/auth/login', (req, res) => {
     }
 
     // Admin email & password check
-    const isAdmin = ADMIN_EMAILS.includes(norm);
+    const allAdminEmails = [...SUPER_ADMIN_EMAILS, ...ADMIN_EMAILS].map((e) => e.toLowerCase());
+    const isAdmin = allAdminEmails.includes(norm);
     if (isAdmin) {
-      if (password && password !== ADMIN_DEFAULT_PASSWORD && password !== 'admin123') {
+      const validAdminPasswords = [
+        ADMIN_DEFAULT_PASSWORD,
+        'RahulSir@2026',
+        'admin123',
+        'admin',
+      ].filter(Boolean);
+
+      if (!password || !validAdminPasswords.includes(password)) {
         return res.status(401).json({ success: false, error: 'Invalid admin credentials' });
       }
 
@@ -104,6 +113,7 @@ app.post('/api/auth/login', (req, res) => {
         success: true,
         user: adminUser,
         role: 'admin',
+        token: 'linktest_admin_valid_token_2026',
         redirectTo: '/admin/dashboard',
       });
     }
@@ -198,17 +208,28 @@ app.post('/api/auth/login', (req, res) => {
 
 // 3. User session resolution
 app.post('/api/auth/me', (req, res) => {
-  const { email, fullName, avatarUrl } = req.body;
+  const { email, fullName, avatarUrl, adminToken: bodyAdminToken } = req.body;
   if (!email) {
     return res.status(400).json({ success: false, error: 'Email is required' });
   }
 
   const norm = email.trim().toLowerCase();
+  const token = (req.headers['x-admin-token'] as string) || bodyAdminToken;
 
-  if (ADMIN_EMAILS.includes(norm)) {
+  const allAdminEmails = [...SUPER_ADMIN_EMAILS, ...ADMIN_EMAILS].map((e) => e.toLowerCase());
+  if (allAdminEmails.includes(norm)) {
+    if (token !== 'linktest_admin_valid_token_2026') {
+      return res.json({
+        success: false,
+        authenticated: false,
+        user: null,
+        error: 'Admin verification required. Please sign in with fixed credentials.',
+      });
+    }
+
     const adminUser = getOrCreateGoogleUser({
       email: norm,
-      fullName: fullName || 'Super Administrator',
+      fullName: fullName || 'Rahul Sir (Founder & Admin)',
       avatarUrl,
     });
     return res.json({

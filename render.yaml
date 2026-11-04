@@ -1,27 +1,56 @@
 services:
   - type: web
-    name: linkview-backend
-    env: node
+    name: linktest-backend
+    runtime: node
     plan: free
-    buildCommand: npm install && npm run build
+    branch: main
+    rootDir: backend
+    buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /healthz
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000
-      - key: ADMIN_EMAIL
+        value: 8081
+      - key: DATABASE_URL
         sync: false
-      - key: ADMIN_PASSWORD
-        sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: ELEVENLABS_API_KEY
-        sync: false
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
+      - key: JWT_SECRET
+        generateValue: true
       - key: FRONTEND_URL
         sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_SECURE
+        value: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_APP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_NAME
+        value: LinkTest
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: CLOUD_AI_PROVIDER
+        value: groq
+      - key: CLOUD_AI_API_KEY
+        sync: false
+      - key: CLOUD_AI_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: CLOUD_AI_MODEL
+        value: qwen/qwen3.8-27b
+

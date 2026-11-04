@@ -1,25 +1,37 @@
-# Multi-stage production build for Render
-FROM node:20-alpine AS builder
-
+# Multi-stage production build for LinkTest Backend
+FROM node:20-alpine AS dependencies
 WORKDIR /app
-COPY package*.json tsconfig.json ./
-RUN npm ci
 
-COPY src ./src
-RUN npm run build
+# Install production dependencies only
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
 
 FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=10000
+ENV PORT=8081
 
-COPY package*.json ./
-RUN npm ci --only=production
+# Create non-root system group and user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 linktest && \
+    chown -R linktest:nodejs /app
 
-COPY --from=builder /app/dist ./dist
-COPY db ./db
+# Copy production node_modules from dependencies stage
+COPY --from=dependencies --chown=linktest:nodejs /app/node_modules ./node_modules
 
-EXPOSE 10000
+# Copy application source code with non-root ownership
+COPY --chown=linktest:nodejs . .
 
-CMD ["node", "dist/server.js"]
+# Switch to non-root execution
+USER linktest
+
+# Expose backend service port
+EXPOSE 8081
+
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8081/api/health || exit 1
+
+# Start production server
+CMD ["node", "src/server.js"]

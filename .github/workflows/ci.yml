@@ -1,0 +1,57 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-build:
+    name: Test Backend & Build Frontend
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci || npm install
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci || npm install
+
+      - name: Run backend test suite
+        run: |
+          cd backend
+          npm test
+        env:
+          NODE_ENV: test
+          PORT: 8081
+          JWT_SECRET: test_jwt_secret_must_be_at_least_32_characters_long!
+          ADMIN_PASSWORD: Admin123!
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci || npm install
+
+      - name: Build frontend production bundle
+        run: |
+          cd frontend
+          npm run build

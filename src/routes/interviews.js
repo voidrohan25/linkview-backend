@@ -50,9 +50,9 @@ router.get('/', (req, res) => {
   return res.status(200).json({ success: true, data: session });
 });
 
-// POST /api/interviews
-router.post('/', (req, res) => {
-  const { sessionId, track = "Python", difficulty = "intermediate", turn, answer } = req.body;
+// Handler for Session Initialization, Turn Submission & Voluntary End
+const processInterviewSubmission = (req, res) => {
+  const { sessionId, track = "Python", difficulty = "intermediate", turn, answer, action, proctoringEvents } = req.body;
 
   const activeId = sessionId || `int-session-${Date.now()}`;
   let session = interviewSessions.get(activeId);
@@ -60,7 +60,7 @@ router.post('/', (req, res) => {
   const normalizedTrack = (track || "python").toLowerCase();
   const trackQuestions = DEFAULT_QUESTIONS[normalizedTrack] || DEFAULT_QUESTIONS.default;
 
-  // 1. Initial Session Creation
+  // 1. Initial Session Creation if not exists
   if (!session) {
     session = {
       id: activeId,
@@ -76,9 +76,45 @@ router.post('/', (req, res) => {
     };
     interviewSessions.set(activeId, session);
 
-    if (!answer) {
+    if (!answer && action !== 'end') {
       return res.status(200).json({ success: true, data: session });
     }
+  }
+
+  // Handle Voluntary End Call Request
+  if (action === 'end' || req.body.end) {
+    session.status = "completed";
+    const turnsCount = session.turns.length || 1;
+    const avgTech = session.turns.length ? Math.round(session.turns.reduce((acc, t) => acc + (t.scores?.technicalAccuracy || 50), 0) / turnsCount) : 60;
+    const avgConc = session.turns.length ? Math.round(session.turns.reduce((acc, t) => acc + (t.scores?.conceptualUnderstanding || 50), 0) / turnsCount) : 58;
+    const avgComm = session.turns.length ? Math.round(session.turns.reduce((acc, t) => acc + (t.scores?.communication || 50), 0) / turnsCount) : 65;
+    const avgProb = session.turns.length ? Math.round(session.turns.reduce((acc, t) => acc + (t.scores?.problemSolving || 50), 0) / turnsCount) : 55;
+    const overall = Math.round((avgTech + avgConc + avgComm + avgProb) / 4);
+
+    session.scorecard = {
+      overallScore: overall,
+      technicalAccuracy: avgTech,
+      conceptualUnderstanding: avgConc,
+      communication: avgComm,
+      problemSolving: avgProb,
+      strengths: [
+        avgTech >= 60 ? `Proficient in ${session.technology} domain terminology` : "Demonstrated oral interview presence",
+        "Communicated responses clearly under assessment conditions"
+      ],
+      weaknesses: [
+        "Can provide more exhaustive trade-off analysis between approaches",
+        "Could include more specific edge-case considerations"
+      ],
+      recommendations: [
+        `Review internal system mechanics for ${session.technology}`,
+        "Practice answering technical viva questions concisely within 2 minutes"
+      ],
+      aiFeedback: `Interview ended by candidate. Assessment finalized with an evaluated score of ${overall}%.`
+    };
+
+    session.updatedAt = new Date().toISOString();
+    interviewSessions.set(activeId, session);
+    return res.status(200).json({ success: true, data: session, scorecard: session.scorecard });
   }
 
   // 2. Turn Submission & Multi-Factor Diagnostic Evaluation
@@ -162,7 +198,7 @@ router.post('/', (req, res) => {
       communication: avgComm,
       problemSolving: avgProb,
       strengths: [
-        avgTech >= 60 ? `Proficient in ${track} domain terminology and idioms` : `Demonstrated willingness to tackle technical questions`,
+        avgTech >= 60 ? `Proficient in ${session.technology} domain terminology and idioms` : `Demonstrated willingness to tackle technical questions`,
         avgComm >= 60 ? `Structured verbal communication and direct answers` : `Maintained steady conversational pacing`
       ],
       weaknesses: [
@@ -170,11 +206,11 @@ router.post('/', (req, res) => {
         avgProb < 70 ? `Incorporate concrete production scenarios and failure modes in answers` : `Practice end-to-end edge case identification`
       ],
       recommendations: [
-        `Review internal architecture documentation for ${track}`,
+        `Review internal architecture documentation for ${session.technology}`,
         `Practice articulating System Design and concurrency models out loud`,
         `Focus on time-space complexity trade-offs during live viva assessments`
       ],
-      aiFeedback: `Overall performance demonstrates a ${overall >= 70 ? 'strong' : overall >= 50 ? 'promising' : 'developing'} foundation in ${track}. Continue refining deep technical precision.`
+      aiFeedback: `Overall performance demonstrates a ${overall >= 70 ? 'strong' : overall >= 50 ? 'promising' : 'developing'} foundation in ${session.technology}. Continue refining deep technical precision.`
     };
   } else {
     session.currentTurn += 1;
@@ -193,6 +229,10 @@ router.post('/', (req, res) => {
       scores: turnRecord.scores
     }
   });
-});
+};
+
+// POST & PUT /api/interviews
+router.post('/', processInterviewSubmission);
+router.put('/', processInterviewSubmission);
 
 export default router;

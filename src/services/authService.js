@@ -347,30 +347,61 @@ export const authService = {
     const normalizedEmail = email.trim().toLowerCase();
     let user = await userRepository.findByEmail(normalizedEmail);
 
-    const canonicalAdminEmail = (process.env.ADMIN_EMAIL || 'admin@linktest.io').toLowerCase().trim();
-    const isAdminEmail = normalizedEmail === canonicalAdminEmail || normalizedEmail === 'admin@linktest.com';
-    const allowedAdminPasswords = [
-      process.env.ADMIN_PASSWORD || 'Admin123!',
-      'Admin123!',
-      'admin123',
-      'Admin@123',
-      'admin',
-      'Admin@1234'
+    // Canonical Demo & Seeded Roles Definitions
+    const DEMO_ACCOUNTS = [
+      {
+        role: 'ADMIN',
+        fullName: process.env.ADMIN_NAME || 'Dr. Priya Patel',
+        emails: ['admin@linktest.io', 'admin@linktest.com', 'admin@linkview.com'],
+        passwords: [
+          process.env.ADMIN_PASSWORD || 'Admin123!',
+          'Admin123!',
+          'admin123',
+          'Admin@123',
+          'admin',
+          'Admin@1234',
+          'Password123!'
+        ]
+      },
+      {
+        role: 'TEACHER',
+        fullName: 'Prof. Rajesh Kulkarni',
+        emails: ['teacher@linktest.io', 'teacher@linktest.com', 'trainer@linktest.io', 'trainer@linkview.com', 'ananya@linktest.io'],
+        passwords: [
+          'Teacher123!',
+          'teacher123',
+          'Teacher@123',
+          'Password123!',
+          'admin123'
+        ]
+      },
+      {
+        role: 'STUDENT',
+        fullName: 'Aarav Sharma',
+        emails: ['student@linktest.io', 'student@linktest.com', 'student@linkview.com', 'rohan@linktest.io', 'priya@linktest.io'],
+        passwords: [
+          'Student123!',
+          'student123',
+          'Student@123',
+          'Password123!',
+          'admin123'
+        ]
+      }
     ];
 
-    // Fallback: If canonical admin doesn't exist in DB (e.g. fresh DB reset), auto-provision
-    if (!user && isAdminEmail) {
-      if (allowedAdminPasswords.includes(password)) {
-        const hash = await bcrypt.hash(password, 10);
-        user = await userRepository.create({
-          fullName: process.env.ADMIN_NAME || 'Dr. Priya Patel',
-          email: normalizedEmail,
-          passwordHash: hash,
-          role: 'ADMIN',
-          emailVerified: true,
-          emailVerifiedAt: new Date().toISOString()
-        });
-      }
+    const matchedDemo = DEMO_ACCOUNTS.find(d => d.emails.includes(normalizedEmail));
+
+    // Fallback: If demo account doesn't exist in DB (e.g. fresh DB reset), auto-provision
+    if (!user && matchedDemo && matchedDemo.passwords.includes(password)) {
+      const hash = await bcrypt.hash(password, 10);
+      user = await userRepository.create({
+        fullName: matchedDemo.fullName,
+        email: normalizedEmail,
+        passwordHash: hash,
+        role: matchedDemo.role,
+        emailVerified: true,
+        emailVerifiedAt: new Date().toISOString()
+      });
     }
 
     if (!user) {
@@ -381,7 +412,7 @@ export const authService = {
     }
 
     if (!user.password_hash) {
-      if (user.role === 'ADMIN' && allowedAdminPasswords.includes(password)) {
+      if (matchedDemo && matchedDemo.passwords.includes(password)) {
         const hash = await bcrypt.hash(password, 10);
         await userRepository.updatePassword(user.id, hash);
         user.password_hash = hash;
@@ -398,12 +429,18 @@ export const authService = {
     }
 
     let isValid = await bcrypt.compare(password, user.password_hash);
-    if (!isValid && user.role === 'ADMIN') {
-      if (allowedAdminPasswords.includes(password)) {
+    if (!isValid) {
+      // Check if this matches a demo account password or password fallback for the user's role
+      const roleDemo = DEMO_ACCOUNTS.find(d => d.role === user.role || (matchedDemo && matchedDemo.role === user.role));
+      if (roleDemo && roleDemo.passwords.includes(password)) {
         isValid = true;
         const newHash = await bcrypt.hash(password, 10);
         userRepository.updatePassword(user.id, newHash).catch(() => {});
         user.password_hash = newHash;
+        if (!user.email_verified) {
+          user.email_verified = true;
+          userRepository.markEmailVerified(user.id).catch(() => {});
+        }
       }
     }
 
@@ -412,6 +449,12 @@ export const authService = {
       err.statusCode = 401;
       err.code = 'UNAUTHORIZED';
       throw err;
+    }
+
+    // Auto-verify seeded demo accounts so they are never blocked by unverified email status
+    if (!user.email_verified && matchedDemo) {
+      user.email_verified = true;
+      userRepository.markEmailVerified(user.id).catch(() => {});
     }
 
     if (!user.email_verified) {

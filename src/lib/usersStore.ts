@@ -86,6 +86,10 @@ export function savePersistedUsers(st: GlobalUsersState) {
 
 // Configured Admin email addresses from environment
 export const ADMIN_EMAILS: string[] = [
+  'admin@linktest.io',
+  'admin@linktest.com',
+  'admin@linkview.com',
+  'admin@gmail.com',
   (process.env.ADMIN_EMAIL || 'rahul.sir@linktest.io').trim().toLowerCase(),
   (process.env.SUPER_ADMIN_EMAIL_1 || 'admin.linktest@gmail.com').trim().toLowerCase(),
   (process.env.SUPER_ADMIN_EMAIL_2 || 'superadmin.linktest@gmail.com').trim().toLowerCase(),

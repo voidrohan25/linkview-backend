@@ -52,12 +52,18 @@ export interface BatchCohort {
   name: string;
   code: string;
   technology: string;
+  course?: string;
+  description?: string;
   trainerId: string;
   trainerName: string;
+  trainerEmail?: string;
   studentCount: number;
   students?: string[];
   startDate: string;
-  status: 'ongoing' | 'upcoming' | 'completed';
+  endDate?: string;
+  timing?: string;
+  status: 'ongoing' | 'upcoming' | 'completed' | 'active' | 'archived';
+  teachers?: any[];
 }
 
 export interface QuestionBankItem {
@@ -477,25 +483,71 @@ class InterviewStore {
   addBatch(batch: {
     name: string;
     code: string;
-    technology: string;
+    technology?: string;
+    course?: string;
+    description?: string;
+    trainerId?: string;
     trainerName?: string;
+    trainerEmail?: string;
     students?: string[];
+    startDate?: string;
+    endDate?: string;
+    timing?: string;
+    status?: 'ongoing' | 'upcoming' | 'completed' | 'active' | 'archived';
   }): BatchCohort {
+    const tech = batch.technology || batch.course || 'Technical';
     const newBatch: BatchCohort = {
       id: `batch-${Date.now().toString().slice(-4)}`,
       name: batch.name,
       code: batch.code.toUpperCase(),
-      technology: batch.technology,
-      trainerId: 'tr-lead',
+      technology: tech,
+      course: tech,
+      description: batch.description || '',
+      trainerId: batch.trainerId || 'tr-lead',
       trainerName: batch.trainerName || 'Rahul Sir (Lead Faculty)',
+      trainerEmail: batch.trainerEmail || 'rahul.sir@linktest.io',
       studentCount: batch.students ? batch.students.length : 0,
       students: batch.students || [],
-      startDate: new Date().toISOString().split('T')[0],
-      status: 'ongoing',
+      startDate: batch.startDate || new Date().toISOString().split('T')[0],
+      endDate: batch.endDate || '',
+      timing: batch.timing || 'Morning (09:00 - 11:00 AM)',
+      status: (batch.status?.toLowerCase() === 'upcoming' ? 'upcoming' : 'ongoing') as any,
     };
     this.batches.unshift(newBatch);
     this.saveToDisk();
     return newBatch;
+  }
+
+  getBatchById(idOrCode: string): BatchCohort | null {
+    const norm = (idOrCode || '').trim().toUpperCase();
+    return this.batches.find((b) => b.id.toUpperCase() === norm || b.code.toUpperCase() === norm) || null;
+  }
+
+  updateBatch(batchIdOrCode: string, updates: Partial<BatchCohort>): BatchCohort | null {
+    const norm = (batchIdOrCode || '').trim().toUpperCase();
+    const batch = this.batches.find((b) => b.id.toUpperCase() === norm || b.code.toUpperCase() === norm);
+    if (!batch) return null;
+
+    if (updates.name) batch.name = updates.name;
+    if (updates.code) batch.code = updates.code.toUpperCase();
+    if (updates.technology || (updates as any).course) {
+      batch.technology = updates.technology || (updates as any).course;
+      batch.course = batch.technology;
+    }
+    if (updates.description !== undefined) batch.description = updates.description;
+    if (updates.startDate) batch.startDate = updates.startDate;
+    if (updates.endDate !== undefined) batch.endDate = updates.endDate;
+    if (updates.timing) batch.timing = updates.timing;
+    if (updates.status) batch.status = updates.status;
+    if (updates.trainerId) batch.trainerId = updates.trainerId;
+    if (updates.trainerName) batch.trainerName = updates.trainerName;
+    if (updates.trainerEmail) batch.trainerEmail = updates.trainerEmail;
+    if (Array.isArray(updates.students)) {
+      batch.students = updates.students;
+      batch.studentCount = updates.students.length;
+    }
+    this.saveToDisk();
+    return batch;
   }
 
   deleteBatch(batchId: string): boolean {

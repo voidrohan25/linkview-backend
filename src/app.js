@@ -56,6 +56,16 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '2mb' }));
 
 // Health and Diagnostics Endpoint (Safe for production monitoring, no secrets leaked)
+app.get('/healthz', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    service: 'linkview-backend',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'production'
+  });
+});
+
 app.get('/api/health', (req, res) => {
   const dbStatus = getDbStatus();
   const livekitStatus = livekitService.getStatus();

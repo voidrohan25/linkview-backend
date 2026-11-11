@@ -5,7 +5,8 @@
   "type": "module",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "build": "npx esbuild src/server.ts --bundle --platform=node --target=node18 --outfile=dist/server.js --format=esm --packages=external",
+    "start": "node dist/server.js",
     "dev": "nodemon --watch src src/server.js",
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed.js",
